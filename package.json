@@ -1,0 +1,37 @@
+{
+  "name": "noir-ambre",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "NOIR AMBRE — a full-screen, dark-themed 3D product landing page for a fictional luxury fragrance brand. Procedural real-time glass bottle, no external 3D model files.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "validate:profile": "node scripts/validate-profile.mjs",
+    "validate:framing": "node scripts/validate-framing.mjs",
+    "validate": "npm run validate:profile && npm run validate:framing"
+  },
+  "dependencies": {
+    "@react-three/drei": "9.122.0",
+    "@react-three/fiber": "8.18.0",
+    "@react-three/postprocessing": "2.19.1",
+    "gsap": "3.13.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.169.0",
+    "zustand": "4.5.7"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/three": "0.169.0",
+    "@vitejs/plugin-react": "4.7.0",
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.9.3",
+    "vite": "5.4.21"
+  }
+}

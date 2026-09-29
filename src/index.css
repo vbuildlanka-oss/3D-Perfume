@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap');
+* {
+  font-family: 'Inter', sans-serif;
+}
+.font-display {
+  font-family: 'Cormorant Garamond', serif;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ *
+ * COLOR SYSTEM — the complete palette.
+ * Only these seven values plus black / white / alpha variants are used
+ * anywhere in the UI or in the lighting gels.
+ * ------------------------------------------------------------------ */
+:root {
+  --bg-base: #0a0908;
+  --bg-elevated: #14110f;
+  --accent-gold: #c9a668;
+  --accent-gold-hover: #d9b87a;
+  --liquid-amber: #b8863f;
+  --text-primary: #f5f0e8;
+  --text-muted: rgba(245, 240, 232, 0.65);
+}
+
+html {
+  /* Native scroll only. No scroll-jacking, no position:fixed scroll hacks. */
+  scroll-behavior: auto;
+  background-color: var(--bg-base);
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Thin gold scrollbar so the 500vh page never shows an OS-grey gutter. */
+body::-webkit-scrollbar {
+  width: 6px;
+}
+body::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+body::-webkit-scrollbar-thumb {
+  background: rgba(201, 166, 104, 0.35);
+  border-radius: 999px;
+}
+
+/* ------------------------------------------------------------------ *
+ * BOKEH LAYER (z-1) — each particle gets its own randomised delay and
+ * duration via inline style; the keyframe itself is shared.
+ * ------------------------------------------------------------------ */
+@keyframes bokeh-float {
+  0% {
+    transform: translateY(-20px);
+  }
+  50% {
+    transform: translateY(20px);
+  }
+  100% {
+    transform: translateY(-20px);
+  }
+}
+
+.bokeh-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--accent-gold);
+  filter: blur(2px);
+  will-change: transform;
+  animation-name: bokeh-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* ------------------------------------------------------------------ *
+ * LOADING SCREEN — thin gold ring, dash offset animated in CSS.
+ * ------------------------------------------------------------------ */
+@keyframes loader-dash {
+  0% {
+    stroke-dasharray: 1, 180;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 100, 180;
+    stroke-dashoffset: -34;
+  }
+  100% {
+    stroke-dasharray: 1, 180;
+    stroke-dashoffset: -179;
+  }
+}
+
+@keyframes loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loader-ring {
+  animation: loader-spin 2.4s linear infinite;
+  transform-origin: center;
+}
+
+.loader-ring__track {
+  animation: loader-dash 1.8s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------------ *
+ * REDUCED MOTION — kill every decorative loop. The scroll-tied camera
+ * moves survive (they are the content), but run linear with no easing.
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .bokeh-particle {
+    animation: none !important;
+  }
+  .loader-ring,
+  .loader-ring__track {
+    animation: none !important;
+  }
+  .loader-ring__track {
+    stroke-dasharray: 60, 180;
+  }
+}
