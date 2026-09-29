@@ -23,6 +23,8 @@ echo "server up (pid $SERVER_PID)"
 ab() { agent-browser --session "$SESSION" "$@"; }
 
 ab open "http://127.0.0.1:4173/" 2>&1 | tail -5
+# Keep captures under the 2000 px per-side limit for multi-image model requests.
+ab viewport 1440 900 > /dev/null 2>&1
 sleep 8
 
 echo "=== WebGL / scene diagnostics ==="
@@ -81,5 +83,9 @@ echo "=== scrub back up to mid-cap-lift, confirm reversibility ==="
 ab eval "window.scrollTo(0, window.innerHeight * 2.5); 'ok'" > /dev/null 2>&1
 sleep 4
 ab screenshot "$SHOTS/06-scrub-back.png" 2>&1 | tail -2
+
+echo "=== downscale screenshots (<=1568 px per side) ==="
+python3 -c "import PIL" 2>/dev/null || pip install -q pillow > /dev/null 2>&1
+python3 "$ROOT/scripts/shrink-screenshots.py" "$SHOTS"
 
 ls -la "$SHOTS"
