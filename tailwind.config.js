@@ -3,20 +3,25 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
-      // Mirror of the :root CSS variables in src/index.css.
-      // These are the ONLY hues used anywhere in the UI or the lighting gels.
+      // Mirrors the :root variables in src/index.css.
       colors: {
-        'bg-base': 'var(--bg-base)',
-        'bg-elevated': 'var(--bg-elevated)',
-        'accent-gold': 'var(--accent-gold)',
-        'accent-gold-hover': 'var(--accent-gold-hover)',
-        'liquid-amber': 'var(--liquid-amber)',
-        'text-primary': 'var(--text-primary)',
-        'text-muted': 'var(--text-muted)',
+        paper: 'rgb(var(--paper-rgb) / <alpha-value>)',
+        'paper-2': 'var(--paper-2)',
+        'paper-3': 'var(--paper-3)',
+        ink: 'rgb(var(--ink-rgb) / <alpha-value>)',
+        'ink-2': 'var(--ink-2)',
+        'ink-3': 'var(--ink-3)',
+        line: 'var(--line)',
+        accent: 'rgb(var(--accent-rgb) / <alpha-value>)',
+        'accent-tint': 'var(--accent-tint)',
       },
       fontFamily: {
-        display: ['Cormorant Garamond', 'serif'],
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Inter Tight', 'system-ui', 'sans-serif'],
+        serif: ['Instrument Serif', 'Georgia', 'serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+      },
+      maxWidth: {
+        page: '1360px',
       },
     },
   },

@@ -21,9 +21,9 @@ function read(): EnvironmentFlags {
 
 /**
  * Drives every performance / accessibility downgrade in the scene:
- *   isMobile       -> 15 bokeh particles, no chromatic aberration, dpr [1,1.5],
- *                     camera travel shortened by 40%
- *   reducedMotion  -> no idle auto-rotation, no mouse parallax, no bob,
+ *   isMobile       -> 1K-texture model, dpr [1,1.5], lighter shadows, compact
+ *                     pins, camera pushed back to fit, lateral travel -40%
+ *   reducedMotion  -> no idle sway, no pointer tilt, no bob, no Lenis,
  *                     linear scroll-tied camera moves only
  *
  * Both are matchMedia-driven so a rotation or an OS accessibility toggle is

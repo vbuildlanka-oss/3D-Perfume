@@ -25,7 +25,7 @@ export function usePointerParallax(enabled: boolean): void {
       );
     };
 
-    // Drifting off-window should relax the bottle back to centre, not freeze it.
+    // Drifting off-window should relax the shoe back to centre, not freeze it.
     const onPointerLeave = () => setPointer(0, 0);
 
     window.addEventListener('pointermove', onPointerMove, { passive: true });

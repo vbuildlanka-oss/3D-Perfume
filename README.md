@@ -1,202 +1,131 @@
-# NOIR AMBRE
+# Kestrel Model 01
 
-A full-screen, dark-themed 3D product landing page for a fictional luxury fragrance brand.
-The centrepiece is a photorealistic glass perfume bottle built **entirely from primitives at
-runtime** — there is no GLTF, OBJ or any other 3D model file in this repository.
+A 3D scrollytelling product site for a fictional running shoe. The shoe is a real-time
+WebGL model that turns, tips and gets closer as you scroll through seven chapters. After
+the story, the rest of the site scrolls up over it: reviews, spec sheet, journal,
+newsletter and footer.
 
-React 18 · TypeScript · Vite · Tailwind CSS · React Three Fiber · drei · postprocessing · GSAP ScrollTrigger
-
----
-
-## Running it
+React 18 · TypeScript · Vite · Tailwind · React Three Fiber · drei · GSAP ScrollTrigger · Lenis · zustand
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # typecheck + production build to dist/
-npm run validate   # geometry + camera-framing checks (no browser needed)
 ```
 
-Append `?debug` to the URL to publish the bottle's live transform on
-`window.__NOIR_DEBUG__` (progress, group rotation, cap position, camera). This is what the
-verification scripts assert against.
+Add `?debug` to the URL to expose the live pose on `window.__KESTREL_DEBUG__`. The
+verification scripts read from it.
 
-## Deploying to Vercel
+## What's on the page
 
-`vercel.json` pins the Vite preset, `dist` as the output directory, and immutable cache
-headers for `/fonts`, `/hdri` and `/assets`. Import the repo and deploy — no further setup.
+| # | Chapter | What the shoe does | Copy |
+|---|---------|--------------------|------|
+| 00 | Model 01 | Three-quarter view from the toe, sitting right of the headline | Hero, price, CTAs |
+| 01 | Upper | Camera moves in on the knit | Left, with pinned callouts |
+| 02 | Cushion | Straight side profile, low camera | Stack heights pinned to the midsole |
+| 03 | Grip | Tips forward to show the outsole | Right |
+| 04 | Heel | Turns so you see it from behind | Left, with pinned callouts |
+| 05 | Colour | Clean profile | Colourway picker |
+| 06 | Buy | Heel-side hero shot | Size picker, add to bag |
 
-Two things were done specifically so the production deploy is self-contained:
+Then: **Reviews → Spec sheet → Journal → Newsletter → Footer**, on a paper sheet that
+slides over the fixed canvas. When the story is fully off screen the canvas stops
+rendering (`frameloop="never"`).
 
-- **The environment map is self-hosted.** drei's `preset="studio"` hard-overrides its load
-  path to a third-party CDN (`raw.githack.com`). The env map is what makes the glass look
-  like glass, so a CDN failure there is a visible defect, not a graceful degradation. The
-  preset is still used as specified, but `Scene.tsx` wraps it in an error boundary that
-  falls back to a byte-identical copy at `/public/hdri/studio_small_03_1k.hdr`.
-- **The label font is self-hosted.** `/public/fonts/CormorantGaramond-Italic.woff`
-  (SIL Open Font License, see `OFL.txt`) rather than a Google Fonts fetch from inside WebGL.
+Small details:
+- The page accent (selection colour, chapter numbers, focus rings, nudges) changes to
+  match the selected colourway.
+- The shoe does a small hop when you change colour.
+- Some sizes are sold out, and they're different for each colour.
+- The loader shows real download progress.
 
----
-
-## Structure
+## How it's built
 
 ```
 src/
-  App.tsx                      layer composition + the loader's hard timeout
-  components/
-    Scene.tsx                  <Canvas>, lights, Environment, camera rig, post FX
-    BottleModel.tsx            the bottle: geometry, materials, idle motion, cap lift
-    BackgroundLayers.tsx       z-0 gradient · z-1 bokeh · z-2 vignette + parallax
-    ScrollSections.tsx         500vh of copy; owns the master ScrollTrigger
-    LoadingScreen.tsx          gold ring + wordmark, fades on assetsReady
+  App.tsx                     layer order, accent sync, loader timeout
   config/
-    bottleProfile.ts           lathe profile, geometry builders, framing helper
-    scrollSequence.ts          every keyframe: camera path, cap track, parallax rates
-    studioBackdrop.ts          the gradient the glass refracts
-    palette.ts                 reads the CSS variables so 3D and DOM cannot drift
-  hooks/
-    useEnvironmentFlags.ts     isMobile + prefers-reduced-motion, matchMedia-driven
-    usePointerParallax.ts      normalised pointer tracking
-    useCanvasResize.ts         ResizeObserver + visualViewport
-  store/useSceneStore.ts       the single DOM -> R3F bridge (zustand)
+    product.ts                all copy that merch might edit: price, specs, colourways
+    scrollSequence.ts         the seven chapter poses (camera, rotation, offset), easing
+  components/
+    Scene.tsx                 <Canvas>, lighting, camera rig
+    ShoeModel.tsx             GLB load, KHR_materials_variants, idle motion, shadow
+    Annotations.tsx           callouts pinned to points on the shoe
+    ScrollSections.tsx        the story's copy + the master ScrollTrigger
+    BackgroundLayers.tsx      paper wash · outline wordmark + grid · floor (parallax)
+    LoadingScreen.tsx
+    story/                    ColorwayPicker, BuyPanel
+    site/                     SiteHeader (nav, bag, toast), ChapterRail, AfterStory
+  hooks/                      smooth scroll, env flags, pointer, canvas resize
+  store/useSceneStore.ts      the one bridge between DOM and WebGL
 ```
 
-### How scroll drives the 3D scene
+**Scroll → 3D.** A single ScrollTrigger scrubs story progress `p` (0 → 1) into the
+zustand store. Inside the canvas, `useFrame` reads it without subscribing, so scrolling
+doesn't re-render React. Camera and shoe pose depend only on `p`, so scrolling forwards,
+backwards or dragging the scrollbar always gives the same result. To re-choreograph the
+story, edit the `CHAPTERS` array.
 
-GSAP owns native scroll. One master ScrollTrigger scrubs a proxy value and writes it to the
-zustand store; everything inside the `<Canvas>` reads it **imperatively inside `useFrame`**
-via `getSceneState()`, never as a reactive selector — otherwise the R3F tree would re-render
-60×/second while scrolling.
+**Colourways.** The GLB ships three materials through `KHR_materials_variants`. Neither
+GLTFLoader applies variants, so `ShoeModel` resolves all three materials up front,
+uploads their textures to the GPU, and swaps `mesh.material` when you pick one. That's why
+switching is instant.
 
-The page is 500vh with five 100vh sections, so master progress `p` runs 0→1 across the 400vh
-of scrollable distance, and section *N* is on screen at `p = (N−1) × 0.25`:
+**Colour accuracy.** Tone mapping is Khronos PBR Neutral, which was designed for
+e-commerce. It keeps each colourway true to its texture on the white page, where ACES
+would warm and desaturate it.
 
-| `p` | section | camera | state |
-|------|---------|--------|-------|
-| 0.00 | 1 hero | `[0, 0, 6]` | idle: spin + bob + pointer tilt |
-| 0.25 | 2 notes | `[1.2, 0.3, 4.5]` | orbit right, push in |
-| 0.50 | 3 cap lift | `[-1, 0.5, 4]` | cap rising |
-| 0.75 | 4 craft | `[0, 0.2, 7]` | pulled back, cap open |
-| 1.00 | 5 CTA | `[0, 0, 5.5]` | cap re-seated, label front and centre |
+## The model
 
-The camera and the cap are **pure functions of `p`** — no tween state anywhere. That is what
-makes the sequence scrub identically forwards, backwards, and when dragging the scrollbar.
+"Materials Variants Shoe" by Shopify, from the
+[Khronos glTF sample assets](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/MaterialsVariantsShoe),
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit appears in the site footer.
 
----
+The source file is 7.8 MB with JPEG textures. It was optimised with
+[glTF-Transform](https://gltf-transform.dev/), and the variants survive the process:
 
-## Tuning the look
+| File | Textures | Size | Used on |
+|------|----------|------|---------|
+| `public/models/kestrel-01.glb` | 2048² WebP + meshopt | 2.8 MB | desktop |
+| `public/models/kestrel-01-1k.glb` | 1024² WebP + meshopt | 0.7 MB | phones (< 768px) |
 
-Every material block in `BottleModel.tsx` is commented, with values from the brief marked
-`[spec]` and supporting values explained. The highest-leverage knobs:
+```bash
+npx @gltf-transform/cli webp    source.glb a.glb --quality 88
+npx @gltf-transform/cli meshopt a.glb kestrel-01.glb
+# 1K: run `resize --width 1024 --height 1024` first
+```
 
-| What | Where | Note |
+## Phones and accessibility
+
+| | Phones (< 768px) | `prefers-reduced-motion` |
 |---|---|---|
-| Glass refraction | `MeshTransmissionMaterial` on the body | `roughness` 0.04 → 0.1 frosts it fast |
-| Front highlight | `envMapIntensity` / `clearcoat` on the body | The bright vertical streak is the studio HDR's strip softbox reflecting off the front wall — the signature product-photography cue, but it clips to white at the specified `envMapIntensity` 1.2 with `clearcoat` 1 stacked over `roughness` 0.04. Drop `envMapIntensity` toward 0.8, or `clearcoat` toward 0.5, to pull it back. |
-| Glass silhouette | `KEY_PROFILE` in `bottleProfile.ts` | 18 control points → spline → lathe |
-| The studio lightbox | `studioBackdrop.ts` | contrast here *is* the glassiness |
-| Liquid glow | `emissiveIntensity` on the liquid | 0 = strictly physical, 0.5 = lamp-like |
-| Fill level | `LIQUID_TOP_Y` | see the note in `bottleProfile.ts` |
+| Model | 1K textures | — |
+| DPR / shadows | capped at 1.5 / 384px | — |
+| Framing | camera pulls back to fit the width; copy stacks under the shoe | — |
+| Callouts | fewer, shown as compact tags | — |
+| Idle sway, bob, pointer tilt | tilt off (touch) | all off |
+| Smooth scroll (Lenis) | native touch scroll | off |
+| Scroll-driven moves | kept | kept, with linear easing |
 
-After changing any camera or cap value, re-run `npm run validate:framing` — it walks the
-whole scroll range and checks the bottle stays inside the frustum.
-
----
-
-## Notes on the brief
-
-A few places where the specification was internally inconsistent. In each case the
-reasoning is recorded in a comment at the relevant line.
-
-1. **Liquid fill.** "Filled to 68% of body height" and "top surface sits at y = −0.15" cannot
-   both hold for a 1.6-unit body spanning −0.8→+0.8: 68% puts the meniscus at y = +0.288,
-   while y = −0.15 is a 41% fill. The explicit coordinate was honoured, since it is the one
-   that guarantees the stated intent (visible headspace) at every camera angle.
-   `LIQUID_TOP_Y` is a single constant if you want the other reading.
-2. **Label placement.** The brief gives a literal `z` of 0.56 *and* the rule "at radius +
-   0.001". They disagree — the lathe's radius at y = −0.1 is ~0.62, so 0.56 would bury the
-   label inside the glass wall. The rule was treated as the governing intent and `z` is
-   computed from the real profile. The offset itself was opened up from 0.001 to 0.012,
-   because 0.001 is below depth-buffer precision here and the label's lower edge visibly
-   serrated against the glass.
-3. **Cap lift vs. camera.** The brief fixes both the lift (+0.5) and the closest camera
-   position (`z = 4`). At `z = 4` the frustum is ~2.6 units tall while the bottle is 2.375 at
-   rest and 2.875 with the cap raised — so a lift completing at `p = 0.5` would push the cap
-   out of frame at the exact moment it is the subject. Two changes resolve it without
-   touching any specified coordinate: the lift is paced to finish at `p = 0.68` (once the
-   camera has begun its pull-back), and the camera aims at the assembly's vertical centre,
-   which rises with the cap. It is still tight by design — `validate:framing` reports the
-   remaining clearance as 0.014 units at the pinch point, split evenly top and bottom.
-4. **Body height.** The lathe stops at y = 0.775 rather than 0.8 so it butt-joins the neck
-   exactly. Overlapping two *transmissive* surfaces refracted that band twice and produced a
-   blown-out hotspot at the shoulder. Body height is therefore 1.575, not 1.6.
-5. **`backside` is off** on the glass. With a solid 0.62-unit-thick lathe, a second
-   refraction pass turned the body into a lens and focused the HDR's softbox into a white
-   column down the centre of the bottle.
-6. **Label material** is `meshPhysicalMaterial`, a strict superset of `meshStandardMaterial`,
-   so every specified value is unchanged. It exposes `specularIntensity`, which was needed:
-   at roughness 0.6 under the 2.2-intensity key light the near-black stock rendered mid-grey.
-
-### Lighting gels
-
-The palette is the only source of colour in the UI. The two exceptions are the light gels
-specified in the brief — `#fff4e0` (key) and `#8899ff` (rim). Both are white with a tint
-rather than new hues, and they are collected in `LIGHT_GELS` in `palette.ts`.
-
----
-
-## Performance & accessibility
-
-| | Mobile (< 768px) | `prefers-reduced-motion` |
-|---|---|---|
-| Bokeh particles | 15 (from 40) | float animation off |
-| Device pixel ratio | capped `[1, 1.5]` | — |
-| Chromatic aberration | disabled | — |
-| Transmission buffer | 512, 4 samples | — |
-| Camera travel | 60% of desktop distance | unchanged, but linear (no easing) |
-| Idle spin / bob / pointer tilt | unchanged | all disabled |
-
-Canvas resize is driven by a `ResizeObserver` on the canvas's container plus a
-`visualViewport` listener, not a bare `window.resize` — mobile Safari and Chrome collapse
-their browser chrome mid-scroll, which changes the element box without reliably firing a
-window resize.
-
----
+Canvas resizing uses a `ResizeObserver` and `visualViewport`, so it still works when mobile
+browser toolbars appear or hide.
 
 ## Verification
 
-Run without a browser:
+These run against `dist/`, so build first. They need `agent-browser`.
 
 | Script | Checks |
 |---|---|
-| `npm run validate:profile` | 18 control points, no negative radii or NaNs, hourglass is wider at 30%/70% and pinched at 50%, clean shoulder taper, exact neck/cap seams, liquid clearance, constant label standoff |
-| `npm run validate:framing` | Walks the scroll range on desktop and mobile; asserts the base, cap crown and shadow plane stay inside the frustum |
+| `npm run verify:story` | Screenshots every chapter plus the after-story sections, on desktop (1440×900) and phone (390×844), and logs the camera for each. |
+| `npm run verify:motion` | Idle sway, bob, pointer tilt and Lenis are on by default. Under reduced motion they read exactly 0 or off, and scroll still drives the story. |
+| `npm run verify:shop` | Colour swap changes the 3D material and the page accent. Add-to-bag without a size is refused. Sold-out sizes are disabled. Adding a size updates the bag count, toast and bag contents. |
 
-Headless browser checks (`scripts/`, require the `dist` build):
+Every screenshot is shrunk to ≤ 1568px on its longest side
+(`scripts/shrink-screenshots.py`), because multi-image model requests reject images over
+2000px.
 
-| Script | Checks |
-|---|---|
-| `verify-render.sh` | Serves `dist`, captures a screenshot per section, asserts 500vh page height, z-order 0/1/2, CTA colour and copy |
-| `verify-variants.sh` | Asserts via `?debug` that idle spin/bob/tilt are live by default, that the cap lift is symmetric in both scroll directions, that mobile drops to 15 particles and 60% camera travel, and that reduced-motion freezes all three idle motions while the scroll camera keeps working |
+## Deploying
 
-Verified results on the current build: page height exactly 500vh, background layers at
-z-index 0/1/2 with the canvas at 10 and copy at 20, no console errors, CTA renders
-`DISCOVER THE COLLECTION` on `rgb(201,166,104)`, cap lift scrubs symmetrically
-(`p` 0.51 → capProgress 0.414 → 1.000 at 0.71 → back to 0.000), mobile reports 15 particles
-and a section-2 camera of `[0.67, 0.17, 5.16]` against the expected `[0.72, 0.18, 5.10]`,
-and reduced motion holds rotation, tilt and bob at exactly 0 while the camera still resolves
-to `[0, 0, 5.5]` at the bottom of the page.
-
-One limitation worth stating: the reduced-motion run emulates the preference by patching
-`window.matchMedia`, which JavaScript reads but CSS does not. The JS-side downgrades are
-therefore asserted numerically; the CSS `@media (prefers-reduced-motion: reduce)` block that
-stops the bokeh and loader animations is verified statically, not at runtime.
-
----
-
-## Licence
-
-`public/fonts/OFL.txt` covers the bundled Cormorant Garamond files.
-`public/hdri/studio_small_03_1k.hdr` is from
-[pmndrs/drei-assets](https://github.com/pmndrs/drei-assets), originally
-[Poly Haven](https://polyhaven.com/) (CC0).
+`vercel.json` sets the Vite preset and caches `/models`, `/hdri` and `/assets`
+permanently. The studio HDR is self-hosted, so nothing at runtime depends on a
+third-party CDN except Google Fonts.

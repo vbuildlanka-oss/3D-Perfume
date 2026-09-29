@@ -1,61 +1,67 @@
 import { useEffect, useState } from 'react';
+import { useProgress } from '@react-three/drei';
 
-/** Must match the CSS transition duration below. */
-const FADE_MS = 800;
+import { BRAND } from '../config/product';
 
-export interface LoadingScreenProps {
-  ready: boolean;
-}
+const FADE_MS = 700;
 
-export function LoadingScreen({ ready }: LoadingScreenProps) {
+/** Rotates while we wait, so a slow connection gets something to read. */
+const LINES = ['Lacing up', 'Finding the other sock', 'Stretching, briefly', 'Almost there'];
+
+export function LoadingScreen({ ready }: { ready: boolean }) {
+  const { progress } = useProgress();
   const [mounted, setMounted] = useState(true);
+  const [line, setLine] = useState(0);
+
+  useEffect(() => {
+    if (ready) return;
+    const t = window.setInterval(() => setLine((l) => (l + 1) % LINES.length), 1600);
+    return () => window.clearInterval(t);
+  }, [ready]);
 
   useEffect(() => {
     if (!ready) return;
-    // Unmount after the fade so the overlay is not left sitting in the DOM
-    // on top of the canvas with pointer-events disabled but still composited.
-    const timer = window.setTimeout(() => setMounted(false), FADE_MS);
-    return () => window.clearTimeout(timer);
+    const t = window.setTimeout(() => setMounted(false), FADE_MS);
+    return () => window.clearTimeout(t);
   }, [ready]);
 
   if (!mounted) return null;
 
+  // The model is most of the payload; hold at 96% until real frames are drawn.
+  const shown = ready ? 100 : Math.min(96, Math.round(progress));
+
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-      style={{
-        backgroundColor: 'var(--bg-base)',
-        opacity: ready ? 0 : 1,
-        filter: ready ? 'blur(12px)' : 'blur(0px)',
-        transition: `opacity ${FADE_MS}ms ease, filter ${FADE_MS}ms ease`,
-        pointerEvents: ready ? 'none' : 'auto',
-      }}
       role="status"
       aria-live="polite"
-      aria-label="Loading NOIR AMBRE"
+      aria-label={`Loading ${BRAND.name}`}
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-paper"
+      style={{
+        opacity: ready ? 0 : 1,
+        transform: ready ? 'translateY(-12px)' : 'none',
+        transition: `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms cubic-bezier(0.2,0.8,0.2,1)`,
+        pointerEvents: ready ? 'none' : 'auto',
+      }}
     >
-      {/* Thin gold ring. The dash pattern is animated in CSS (loader-dash),
-          the whole ring counter-rotates (loader-spin). Both are disabled
-          under prefers-reduced-motion — see index.css. */}
-      <svg width="56" height="56" viewBox="0 0 56 56" className="loader-ring" aria-hidden="true">
-        <circle
-          className="loader-ring__track"
-          cx="28"
-          cy="28"
-          r="26"
-          fill="none"
-          stroke="var(--accent-gold)"
-          strokeWidth="1"
-          strokeLinecap="round"
-        />
-      </svg>
-
-      <p
-        className="mt-7 font-display italic text-2xl tracking-[0.12em]"
-        style={{ color: 'var(--accent-gold)' }}
-      >
-        NOIR AMBRE
-      </p>
+      <div className="w-[min(280px,70vw)]">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[15px] font-semibold uppercase tracking-[0.18em]">
+            {BRAND.name}
+          </span>
+          <span className="mono text-xs tabular-nums text-ink-2">
+            {String(shown).padStart(2, '0')}%
+          </span>
+        </div>
+        <div className="mt-3 h-px w-full bg-line">
+          <div
+            className="h-px bg-ink transition-[width] duration-300 ease-out"
+            style={{ width: `${shown}%` }}
+          />
+        </div>
+        <p className="mono mt-3 text-[11px] uppercase tracking-[0.14em] text-ink-3">
+          {LINES[line]}…
+        </p>
+      </div>
     </div>
   );
 }

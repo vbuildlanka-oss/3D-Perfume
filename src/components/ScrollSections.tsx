@@ -1,47 +1,86 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
+import { BRAND, formatPrice } from '../config/product';
+import { CHAPTERS } from '../config/scrollSequence';
+import { scrollToTarget } from '../hooks/useSmoothScroll';
 import { useSceneStore } from '../store/useSceneStore';
+import { BuyPanel } from './story/BuyPanel';
+import { ColorwayPicker } from './story/ColorwayPicker';
 
 gsap.registerPlugin(ScrollTrigger);
 
-export interface ScrollSectionsProps {
-  reducedMotion: boolean;
+/* ------------------------------------------------------------------ *
+ * Layout helpers
+ * ------------------------------------------------------------------ */
+type Place = 'left' | 'right' | 'bottom' | 'bottom-left';
+
+const PLACE: Record<Place, string> = {
+  // Mobile always stacks the copy at the bottom; the shoe sits above it.
+  left: 'items-end md:items-center md:justify-start',
+  right: 'items-end md:items-center md:justify-end lg:pr-14',
+  bottom: 'items-end md:justify-center',
+  'bottom-left': 'items-end md:justify-start',
+};
+
+function Chapter({
+  index,
+  place,
+  children,
+  interactive = false,
+}: {
+  index: number;
+  place: Place;
+  children: ReactNode;
+  interactive?: boolean;
+}) {
+  return (
+    <section
+      id={`chapter-${CHAPTERS[index].id}`}
+      data-chapter={index}
+      aria-label={CHAPTERS[index].label}
+      className="pointer-events-none relative flex h-screen w-full"
+    >
+      <div
+        className={`mx-auto flex h-full w-full max-w-page px-6 pb-10 pt-[calc(var(--header-h)+24px)] sm:px-10 md:pb-16 ${PLACE[place]}`}
+      >
+        <div data-copy className={`w-full md:w-auto ${interactive ? 'pointer-events-auto' : ''}`}>
+          {children}
+        </div>
+      </div>
+    </section>
+  );
 }
 
-export function ScrollSections({ reducedMotion }: ScrollSectionsProps) {
+function Kicker({ n, children }: { n: string; children: ReactNode }) {
+  return (
+    <p className="eyebrow flex items-center gap-3">
+      <span className="accent-transition text-accent">{n}</span>
+      <span className="h-px w-8 bg-ink/20" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * The story
+ * ------------------------------------------------------------------ */
+export function ScrollSections({ reducedMotion }: { reducedMotion: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const heroRef = useRef<HTMLDivElement>(null);
-  const notesRef = useRef<HTMLDivElement>(null);
-  const craftRef = useRef<HTMLDivElement>(null);
-  const ctaRef = useRef<HTMLDivElement>(null);
-  const sectionRefs = useRef<Array<HTMLElement | null>>([]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    /**
-     * `scrub: 1` gives a 1-second catch-up, which is what makes the camera
-     * feel weighted rather than glued to the wheel. Under reduced motion we
-     * drop to `true` (direct, frame-accurate) so there is no residual glide.
-     */
-    const scrub: number | boolean = reducedMotion ? true : 1;
+    // Lenis already smooths the wheel, so the scrub only adds a little
+    // weight. Reduced motion: frame-accurate, no glide.
+    const scrub: number | boolean = reducedMotion ? true : 0.6;
+    const { setProgress, setStoryActive } = useSceneStore.getState();
 
-    const context = gsap.context(() => {
-      /* ------------------------------------------------------------ *
-       * MASTER PROGRESS
-       *
-       * The one and only bridge from scroll to the 3D scene. A plain
-       * ScrollTrigger reports raw, unsmoothed progress, so instead we
-       * scrub a proxy object — that way the value handed to R3F already
-       * carries the same easing as the DOM parallax layers, and the
-       * bottle and the background never drift out of sync.
-       * ------------------------------------------------------------ */
+    const ctx = gsap.context(() => {
+      /* MASTER PROGRESS — the one bridge from scroll to the 3D scene. */
       const proxy = { value: 0 };
-      const setProgress = useSceneStore.getState().setProgress;
-
       gsap.to(proxy, {
         value: 1,
         ease: 'none',
@@ -55,193 +94,185 @@ export function ScrollSections({ reducedMotion }: ScrollSectionsProps) {
         onUpdate: () => setProgress(proxy.value),
       });
 
-      /* ------------------------------------------------------------ *
-       * HERO COPY — visible at load, so it only ever fades out.
-       * Gone by the time the camera starts its first orbit.
-       * ------------------------------------------------------------ */
-      if (heroRef.current && sectionRefs.current[0]) {
-        gsap.fromTo(
-          heroRef.current,
-          { opacity: 1, y: 0 },
-          {
-            opacity: 0,
-            y: -40,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: sectionRefs.current[0],
-              start: 'top top',
-              end: 'bottom center',
-              scrub,
-            },
-          },
-        );
-      }
+      /* Stop rendering WebGL once the story has fully scrolled away. */
+      ScrollTrigger.create({
+        trigger: container,
+        start: 'top bottom',
+        end: 'bottom top',
+        onToggle: (self) => setStoryActive(self.isActive),
+      });
 
-      /* ------------------------------------------------------------ *
-       * SECTION COPY — one timeline per block, spanning
-       * [sectionTop - 100vh, sectionTop + 100vh]. The hold phase is the
-       * middle third, so each block is at full opacity exactly while its
-       * section owns the viewport.
-       * ------------------------------------------------------------ */
-      const fadeInOut = (element: HTMLElement | null, sectionIndex: number) => {
-        const section = sectionRefs.current[sectionIndex];
-        if (!element || !section) return;
+      /* COPY — each chapter fades up in, holds, and drifts out. */
+      const sections = gsap.utils.toArray<HTMLElement>('[data-chapter]', container);
+      sections.forEach((section, i) => {
+        const copy = section.querySelector<HTMLElement>('[data-copy]');
+        if (!copy) return;
+        const first = i === 0;
+        const last = i === sections.length - 1;
 
-        const timeline = gsap.timeline({
+        const tl = gsap.timeline({
           scrollTrigger: {
             trigger: section,
-            start: 'top bottom',
-            end: 'bottom top',
+            start: first ? 'top top' : 'top bottom',
+            end: last ? 'top top' : 'bottom top',
             scrub,
             invalidateOnRefresh: true,
           },
         });
 
-        timeline
-          .fromTo(
-            element,
-            { opacity: 0, y: 30 },
-            { opacity: 1, y: 0, duration: 1, ease: 'none' },
-          )
-          .to(element, { opacity: 1, duration: 1, ease: 'none' })
-          .to(element, { opacity: 0, y: -30, duration: 1, ease: 'none' });
-      };
-
-      fadeInOut(notesRef.current, 1); // section 2
-      fadeInOut(craftRef.current, 3); // section 4
-      fadeInOut(ctaRef.current, 4); // section 5 — clamps at full opacity
-
-      // Section 3 carries no copy on purpose: the cap lift is the content.
+        if (!first) {
+          tl.fromTo(
+            copy,
+            { autoAlpha: 0, y: 48 },
+            { autoAlpha: 1, y: 0, duration: 1, ease: 'power2.out' },
+          );
+        }
+        if (!last) {
+          tl.to(copy, { autoAlpha: 1, duration: first ? 0.4 : 0.5 });
+          tl.to(copy, { autoAlpha: 0, y: -40, duration: first ? 0.6 : 0.8, ease: 'power1.in' });
+        }
+      });
     }, container);
 
-    // The 500vh page depends on viewport height; recompute after fonts land.
-    const refresh = () => ScrollTrigger.refresh();
-    document.fonts?.ready.then(refresh).catch(() => undefined);
-
-    return () => context.revert();
+    document.fonts?.ready.then(() => ScrollTrigger.refresh()).catch(() => undefined);
+    return () => ctx.revert();
   }, [reducedMotion]);
 
-  const registerSection = (index: number) => (element: HTMLElement | null) => {
-    sectionRefs.current[index] = element;
-  };
-
   return (
-    /* Total page height: 5 x 100vh = 500vh.
-       z-20 puts the copy above the background layers and the canvas;
-       pointer-events-none lets the pointer-parallax tracking (and any future
-       orbit controls) keep working straight through the text. */
-    <div ref={containerRef} className="relative z-20 w-full">
-      {/* ============================================================ *
-          SECTION 1 — HERO
-          ============================================================ */}
-      <section
-        ref={registerSection(0)}
-        className="pointer-events-none flex h-screen w-full items-center justify-center px-6"
-      >
-        <div ref={heroRef} className="text-center">
-          <h1
-            className="font-display italic text-5xl leading-[0.95] sm:text-7xl md:text-8xl"
-            style={{ color: 'var(--text-primary)', letterSpacing: '-0.03em' }}
-          >
-            Where shadow
-          </h1>
-          <h1
-            className="-mt-2 font-display italic text-5xl leading-[0.95] sm:text-7xl md:text-8xl"
-            style={{ color: 'var(--text-primary)', letterSpacing: '-0.03em' }}
-          >
-            meets amber
-          </h1>
-          <p
-            className="mt-8 text-sm uppercase tracking-[0.3em]"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            NOIR AMBRE — Eau de Parfum
+    <div id="story" ref={containerRef} className="relative z-20 w-full">
+      {/* 00 — Intro */}
+      <Chapter index={0} place="left" interactive>
+        <div className="max-w-[560px] pb-4 md:pb-0">
+          <p className="eyebrow">
+            {BRAND.model} · {BRAND.category} · {formatPrice(BRAND.price)}
           </p>
-        </div>
-      </section>
-
-      {/* ============================================================ *
-          SECTION 2 — NOTES. Left, bottom-anchored.
-          ============================================================ */}
-      <section
-        ref={registerSection(1)}
-        className="pointer-events-none flex h-screen w-full items-end justify-start px-6 pb-20 sm:px-12 md:px-20"
-      >
-        <p
-          ref={notesRef}
-          className="font-display italic text-3xl"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Bergamot. Black Amber. Oud.
-        </p>
-      </section>
-
-      {/* ============================================================ *
-          SECTION 3 — THE CAP LIFT. No copy; the bottle is the moment.
-          ============================================================ */}
-      <section ref={registerSection(2)} className="pointer-events-none h-screen w-full" />
-
-      {/* ============================================================ *
-          SECTION 4 — CRAFT. Two columns, copy on the right.
-          ============================================================ */}
-      <section
-        ref={registerSection(3)}
-        className="pointer-events-none h-screen w-full items-center px-6 sm:px-12 md:px-20"
-      >
-        <div className="grid h-full w-full grid-cols-1 items-center gap-8 md:grid-cols-2">
-          {/* Left column intentionally empty — it is the bottle's column. */}
-          <div className="hidden md:block" />
-          <div ref={craftRef} className="flex flex-col items-start md:items-end">
-            <h2
-              className="font-display italic text-4xl md:text-right"
-              style={{ color: 'var(--text-primary)' }}
+          <h1 className="display mt-5 text-[3.1rem] sm:text-7xl lg:text-[5.6rem]">
+            For the miles
+            <br />
+            <span className="serif italic font-normal tracking-[-0.02em]">nobody</span> posts
+            <br />
+            about.
+          </h1>
+          <p className="body-copy mt-6 max-w-[400px]">
+            A daily trainer for Tuesday mornings, wet pavements and the extra loop you didn’t plan.
+            248 grams, and nothing you’ll have to think about.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="btn-ink"
+              onClick={() => {
+                const buy = document.getElementById('chapter-buy');
+                if (buy) scrollToTarget(buy);
+              }}
             >
-              Hand-blown. Small batch.
-            </h2>
-            <p
-              className="mt-5 max-w-xs text-sm leading-relaxed md:text-right"
-              style={{ color: 'var(--text-muted)' }}
+              Shop — {formatPrice(BRAND.price)}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                const next = document.getElementById('chapter-upper');
+                if (next) scrollToTarget(next);
+              }}
             >
-              Each bottle is individually blown by master glassworkers in small batches of
-              200, no two exactly alike.
-            </p>
+              Take a closer look
+            </button>
           </div>
         </div>
-      </section>
+      </Chapter>
 
-      {/* ============================================================ *
-          SECTION 5 — CTA. Centered, final settled hero shot behind it.
-          ============================================================ */}
-      <section
-        ref={registerSection(4)}
-        className="pointer-events-none flex h-screen w-full items-end justify-center px-6 pb-24"
-      >
-        <div ref={ctaRef} className="text-center">
-          <button
-            type="button"
-            // The only interactive element on the page, so it opts back in.
-            className="pointer-events-auto rounded-full px-8 py-4 text-sm font-medium uppercase tracking-[0.15em] transition-all hover:scale-[1.03]"
-            style={{
-              backgroundColor: 'var(--accent-gold)',
-              color: 'var(--bg-base)',
-            }}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.backgroundColor = 'var(--accent-gold-hover)';
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.backgroundColor = 'var(--accent-gold)';
-            }}
-            onFocus={(event) => {
-              event.currentTarget.style.backgroundColor = 'var(--accent-gold-hover)';
-            }}
-            onBlur={(event) => {
-              event.currentTarget.style.backgroundColor = 'var(--accent-gold)';
-            }}
-          >
-            Discover the Collection
-          </button>
+      {/* 01 — Upper */}
+      <Chapter index={1} place="left">
+        <div className="max-w-[440px]">
+          <Kicker n="01">Upper</Kicker>
+          <h2 className="h2 mt-5">
+            A knit that learns your foot, then{' '}
+            <span className="serif italic font-normal">leaves it alone.</span>
+          </h2>
+          <p className="body-copy mt-5">
+            One layer of engineered mesh — tighter over the toes, open through the midfoot so it
+            breathes in August. It gives a little in the first week, then holds its shape.
+          </p>
+          <dl className="mt-7 grid max-w-[360px] grid-cols-2 gap-x-6 border-t border-line pt-5 text-sm">
+            <div>
+              <dt className="text-ink-2">Recycled polyester</dt>
+              <dd className="mt-1 text-xl font-semibold tabular-nums">81%</dd>
+            </div>
+            <div>
+              <dt className="text-ink-2">Stitched overlays</dt>
+              <dd className="mt-1 text-xl font-semibold tabular-nums">0</dd>
+            </div>
+          </dl>
         </div>
-      </section>
+      </Chapter>
+
+      {/* 02 — Cushion (the pins on the shoe carry the numbers) */}
+      <Chapter index={2} place="bottom-left">
+        <div className="max-w-[520px]">
+          <Kicker n="02">Cushion</Kicker>
+          <h2 className="h2 mt-5">
+            Soft on landing. <span className="serif italic font-normal">Not</span> mushy on the way
+            out.
+          </h2>
+          <p className="body-copy mt-5 max-w-[440px]">
+            A supercritical foam midsole, 34 mm under the heel and 26 under the forefoot. We tuned
+            it with a sports physio whose only note, for eleven rounds, was “less.”
+          </p>
+        </div>
+      </Chapter>
+
+      {/* 03 — Grip */}
+      <Chapter index={3} place="right">
+        <div className="max-w-[420px] md:text-right">
+          <div className="md:flex md:justify-end">
+            <Kicker n="03">Grip</Kicker>
+          </div>
+          <h2 className="h2 mt-5">
+            Rubber where you <span className="serif italic font-normal">actually</span> push off.
+          </h2>
+          <p className="body-copy mt-5">
+            Full-length outsole with 3 mm lugs, cut deeper under the forefoot. It did 1,200 km on
+            Lisbon’s wet cobbles before we signed it off. The cobbles are fine.
+          </p>
+        </div>
+      </Chapter>
+
+      {/* 04 — Heel */}
+      <Chapter index={4} place="left">
+        <div className="max-w-[420px]">
+          <Kicker n="04">Heel</Kicker>
+          <h2 className="h2 mt-5">
+            No blisters. <span className="serif italic font-normal">We checked.</span>
+          </h2>
+          <p className="body-copy mt-5">
+            A padded collar and a heel counter moulded from recycled TPU, so your heel sits in the
+            shoe instead of on top of it. The pull tab is big enough for cold fingers in January.
+          </p>
+        </div>
+      </Chapter>
+
+      {/* 05 — Colour */}
+      <Chapter index={5} place="bottom" interactive>
+        <div className="pointer-events-auto flex flex-col gap-6 md:flex-row md:items-end md:gap-16">
+          <div className="max-w-[420px]">
+            <Kicker n="05">Colour</Kicker>
+            <h2 className="h2 mt-5">
+              Three colours. <span className="serif italic font-normal">None</span> of them limited.
+            </h2>
+          </div>
+          <div className="md:pb-1">
+            <ColorwayPicker />
+          </div>
+        </div>
+      </Chapter>
+
+      {/* 06 — Buy */}
+      <Chapter index={6} place="right" interactive>
+        <div className="flex w-full justify-center md:justify-end">
+          <BuyPanel />
+        </div>
+      </Chapter>
     </div>
   );
 }

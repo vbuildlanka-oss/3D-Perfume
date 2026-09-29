@@ -1,172 +1,102 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
+import { BRAND } from '../config/product';
 import { PARALLAX_RATES, SCROLL_SPAN } from '../config/scrollSequence';
 
 gsap.registerPlugin(ScrollTrigger);
 
-/* ================================================================== *
- * BOKEH FIELD
+/**
+ * Three fixed layers behind the canvas, each drifting at its own rate while
+ * the story scrolls:
  *
- * Seeded, not Math.random(): a fixed seed means the field is identical
- * across reloads and across HMR, so the composition you tune is the
- * composition you ship.
- * ================================================================== */
-function mulberry32(seed: number): () => number {
-  let a = seed;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-const DESKTOP_PARTICLES = 40;
-const MOBILE_PARTICLES = 15;
-
-interface Particle {
-  size: number;
-  left: number;
-  top: number;
-  opacity: number;
-  duration: number;
-  delay: number;
-}
-
-function buildParticles(count: number): Particle[] {
-  const random = mulberry32(0x9e3779b9);
-  return Array.from({ length: count }, () => ({
-    size: 6 + random() * 8, //        6 -> 14px
-    left: random() * 100, //          full width
-    top: random() * 100, //           full height of the (oversized) layer
-    opacity: 0.15 + random() * 0.2, //0.15 -> 0.35
-    duration: 8 + random() * 6, //    8 -> 14s
-    delay: -random() * 14, //         negative delay: the field starts mid-cycle
-  }));
-}
-
-/* ================================================================== *
- * LAYER TRAVEL
+ *   z-0  paper wash — a barely-there warm falloff so the white has depth
+ *   z-1  the wordmark, set huge in outline, plus a faint column grid
+ *   z-2  floor — a soft grey band where the shoe's shadow lands
  *
- * These layers are position:fixed, so their natural parallax rate is 0x.
- * To make a fixed layer appear to move at Nx the scroll speed we translate
- * it by N * (total scrollable distance).
- *
- * Total scrollable distance on a 500vh page is 400vh, i.e.
- * SCROLL_SPAN * viewportHeight.
- *
- * Each layer is then made taller than the viewport by at least its own
- * travel distance, so translating it never exposes an empty edge.
- * ================================================================== */
-const layerTravel = (rate: number, viewportHeight: number) =>
-  -rate * SCROLL_SPAN * viewportHeight;
-
-export interface BackgroundLayersProps {
-  isMobile: boolean;
-}
-
-export function BackgroundLayers({ isMobile }: BackgroundLayersProps) {
-  const gradientRef = useRef<HTMLDivElement>(null);
-  const bokehRef = useRef<HTMLDivElement>(null);
-
-  const particles = useMemo(
-    () => buildParticles(isMobile ? MOBILE_PARTICLES : DESKTOP_PARTICLES),
-    [isMobile],
-  );
+ * They are covered by the rest of the page once the story ends.
+ */
+export function BackgroundLayers() {
+  const washRef = useRef<HTMLDivElement>(null);
+  const wordRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const gradient = gradientRef.current;
-    const bokeh = bokehRef.current;
-    if (!gradient || !bokeh) return;
-
-    const context = gsap.context(() => {
-      // `ease: 'none'` — a parallax layer must track scroll linearly. The
-      // `scrub: 1` below is what provides the (1s) smoothing, and it applies
-      // equally in both scroll directions.
-      const common = {
+    const ctx = gsap.context(() => {
+      const travel = (rate: number) => () => -rate * SCROLL_SPAN * window.innerHeight;
+      const trigger = {
+        trigger: '#story',
+        start: 'top top',
+        end: 'bottom bottom',
+        scrub: true,
+        invalidateOnRefresh: true,
+      };
+      gsap.to(washRef.current, {
+        y: travel(PARALLAX_RATES.wash),
         ease: 'none',
-        scrollTrigger: {
-          trigger: document.documentElement,
-          start: 'top top',
-          end: 'bottom bottom',
-          scrub: 1,
-          invalidateOnRefresh: true,
-        },
-      } as const;
-
-      gsap.to(gradient, {
-        ...common,
-        y: () => layerTravel(PARALLAX_RATES.gradient, window.innerHeight),
+        scrollTrigger: trigger,
       });
-
-      gsap.to(bokeh, {
-        ...common,
-        y: () => layerTravel(PARALLAX_RATES.bokeh, window.innerHeight),
+      gsap.to(wordRef.current, {
+        y: travel(PARALLAX_RATES.wordmark),
+        ease: 'none',
+        scrollTrigger: { ...trigger },
       });
-
-      // The vignette (z-2) is deliberately pinned to the viewport at 0x.
-      // A vignette that slides with the content stops reading as a lens
-      // effect and starts reading as a grey rectangle.
     });
-
-    return () => context.revert();
-  }, [isMobile]);
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <div aria-hidden="true">
-      {/* ---------------------------------------------------------------- *
-          z-0 — base radial gradient.
-          Oversized by 50vh so its 40vh of travel never reveals an edge.
-          ---------------------------------------------------------------- */}
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
+      {/* z-0 — paper wash. Oversized so translating it never shows an edge. */}
       <div
-        ref={gradientRef}
-        className="pointer-events-none fixed left-0 z-0 w-full"
+        ref={washRef}
+        className="absolute inset-x-0 top-0"
         style={{
-          top: '-25vh',
-          height: '150vh',
+          zIndex: 0,
+          height: '200vh',
           background:
-            'radial-gradient(circle at 50% 40%, var(--bg-elevated) 0%, var(--bg-base) 70%)',
-          willChange: 'transform',
+            'radial-gradient(120% 60% at 50% 22%, var(--paper) 35%, var(--paper-2) 75%, var(--paper-3) 100%)',
         }}
       />
 
-      {/* ---------------------------------------------------------------- *
-          z-1 — bokeh field.
-          Travels a full viewport height (0.25 x 400vh), so the layer is
-          200vh tall and offset upward to stay covered throughout.
-          ---------------------------------------------------------------- */}
+      {/* z-1 — outline wordmark and column grid. */}
       <div
-        ref={bokehRef}
-        className="pointer-events-none fixed left-0 z-[1] w-full overflow-hidden"
-        style={{ top: '-50vh', height: '200vh', willChange: 'transform' }}
+        ref={wordRef}
+        className="absolute inset-x-0 top-0"
+        style={{ zIndex: 1, height: '200vh' }}
       >
-        {particles.map((particle, index) => (
-          <span
-            key={index}
-            className="bokeh-particle"
-            style={{
-              width: `${particle.size}px`,
-              height: `${particle.size}px`,
-              left: `${particle.left}%`,
-              top: `${particle.top}%`,
-              opacity: particle.opacity,
-              animationDuration: `${particle.duration}s`,
-              animationDelay: `${particle.delay}s`,
-            }}
-          />
-        ))}
+        <div
+          className="absolute inset-0 mx-auto hidden max-w-page grid-cols-12 px-6 sm:px-10 md:grid"
+          style={{ columnGap: 24 }}
+        >
+          {Array.from({ length: 12 }, (_, i) => (
+            <div
+              key={i}
+              className="h-full border-x"
+              style={{ borderColor: 'rgba(20,20,20,0.028)' }}
+            />
+          ))}
+        </div>
+        <p
+          className="absolute left-1/2 top-[30vh] -translate-x-1/2 select-none whitespace-nowrap font-semibold uppercase leading-none"
+          style={{
+            fontSize: 'clamp(7rem, 24vw, 26rem)',
+            letterSpacing: '-0.06em',
+            color: 'transparent',
+            WebkitTextStroke: '1px rgba(20,20,20,0.07)',
+          }}
+        >
+          {BRAND.name}
+        </p>
       </div>
 
-      {/* ---------------------------------------------------------------- *
-          z-2 — vignette. Locked to the viewport (0x parallax).
-          ---------------------------------------------------------------- */}
+      {/* z-2 — floor. Fixed to the viewport; a moving floor reads as a bug. */}
       <div
-        className="pointer-events-none fixed inset-0 z-[2]"
+        className="absolute inset-x-0 bottom-0 h-[38vh]"
         style={{
-          background: 'radial-gradient(circle, transparent 40%, rgba(0,0,0,0.55) 100%)',
+          zIndex: 2,
+          background:
+            'linear-gradient(to bottom, rgba(236,235,231,0) 0%, rgba(236,235,231,0.55) 100%)',
         }}
       />
     </div>
