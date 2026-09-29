@@ -7,6 +7,8 @@ newsletter and footer.
 
 React 18 · TypeScript · Vite · Tailwind · React Three Fiber · drei · GSAP ScrollTrigger · Lenis · zustand
 
+Author: vbuildlanka@gmail.com · © VBUILD™
+
 ```bash
 npm install
 npm run dev        # http://localhost:5173
@@ -18,15 +20,15 @@ verification scripts read from it.
 
 ## What's on the page
 
-| # | Chapter | What the shoe does | Copy |
-|---|---------|--------------------|------|
-| 00 | Model 01 | Three-quarter view from the toe, sitting right of the headline | Hero, price, CTAs |
-| 01 | Upper | Camera moves in on the knit | Left, with pinned callouts |
-| 02 | Cushion | Straight side profile, low camera | Stack heights pinned to the midsole |
-| 03 | Grip | Tips forward to show the outsole | Right |
-| 04 | Heel | Turns so you see it from behind | Left, with pinned callouts |
-| 05 | Colour | Clean profile | Colourway picker |
-| 06 | Buy | Heel-side hero shot | Size picker, add to bag |
+| Chapter | What the shoe does | Copy |
+|---------|--------------------|------|
+| Model 01 | Three-quarter view from the toe, sitting right of the headline | Hero, price, CTAs |
+| Upper | Camera moves in on the knit | Left, with pinned callouts |
+| Cushion | Straight side profile, low camera | Stack heights pinned to the midsole |
+| Grip | Tips forward to show the outsole | Right |
+| Heel | Turns so you see it from behind | Left, with pinned callouts |
+| Colour | Clean profile | Colourway picker |
+| Buy | Heel-side hero shot | Size picker, add to bag |
 
 Then: **Reviews → Spec sheet → Journal → Newsletter → Footer**, on a paper sheet that
 slides over the fixed canvas. When the story is fully off screen the canvas stops
@@ -38,6 +40,8 @@ Small details:
 - The shoe does a small hop when you change colour.
 - Some sizes are sold out, and they're different for each colour.
 - The loader shows real download progress.
+- Footer: © VBUILD™. The only other credit is a link to the 3D model's CC BY 4.0
+  licence page, which CC BY requires.
 
 ## How it's built
 
@@ -55,7 +59,7 @@ src/
     BackgroundLayers.tsx      paper wash · outline wordmark + grid · floor (parallax)
     LoadingScreen.tsx
     story/                    ColorwayPicker, BuyPanel
-    site/                     SiteHeader (nav, bag, toast), ChapterRail, AfterStory
+    site/                     SiteHeader (nav, bag, toast), AfterStory
   hooks/                      smooth scroll, env flags, pointer, canvas resize
   store/useSceneStore.ts      the one bridge between DOM and WebGL
 ```
@@ -95,6 +99,19 @@ npx @gltf-transform/cli meshopt a.glb kestrel-01.glb
 # 1K: run `resize --width 1024 --height 1024` first
 ```
 
+## Journal images
+
+`public/images/journal/`, 960×720 WebP:
+
+| File | Source | Licence |
+|------|--------|---------|
+| `carbon-plate.webp` | Rendered from this site's own 3D scene (`scripts/render-still.sh`) | — |
+| `porto-rain.webp` | [rawpixel 3302924](https://www.rawpixel.com/image/3302924/free-photo-image-nature-street-downtown) | CC0 |
+| `worn-out.webp` | [rawpixel 3291890](https://www.rawpixel.com/image/3291890/free-photo-image-abandoned-animal-apparel) | CC0 |
+
+CC0 requires no attribution. Before choosing each photo I checked it up close for
+visible brand logos, so the site shows no third-party trademarks.
+
 ## Phones and accessibility
 
 | | Phones (< 768px) | `prefers-reduced-motion` |
@@ -118,6 +135,7 @@ These run against `dist/`, so build first. They need `agent-browser`.
 |---|---|
 | `npm run verify:story` | Screenshots every chapter plus the after-story sections, on desktop (1440×900) and phone (390×844), and logs the camera for each. |
 | `npm run verify:motion` | Idle sway, bob, pointer tilt and Lenis are on by default. Under reduced motion they read exactly 0 or off, and scroll still drives the story. |
+| `scripts/render-still.sh` | Renders a studio still of the shoe (any chapter pose and colourway) with the page chrome hidden. |
 | `npm run verify:shop` | Colour swap changes the 3D material and the page accent. Add-to-bag without a size is refused. Sold-out sizes are disabled. Adding a size updates the bag count, toast and bag contents. |
 
 Every screenshot is shrunk to ≤ 1568px on its longest side

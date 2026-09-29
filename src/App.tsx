@@ -5,7 +5,6 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { Scene } from './components/Scene';
 import { ScrollSections } from './components/ScrollSections';
 import { AfterStory } from './components/site/AfterStory';
-import { ChapterCounter, ChapterRail } from './components/site/ChapterRail';
 import { SiteHeader } from './components/site/SiteHeader';
 import { getColorway } from './config/product';
 import { useEnvironmentFlags } from './hooks/useEnvironmentFlags';
@@ -67,9 +66,7 @@ export default function App() {
       <ScrollSections reducedMotion={reducedMotion} />
       <AfterStory />
 
-      {/* z-30/40 — navigation chrome */}
-      <ChapterRail />
-      <ChapterCounter />
+      {/* z-40 — navigation */}
       <SiteHeader />
 
       <LoadingScreen ready={assetsReady} />

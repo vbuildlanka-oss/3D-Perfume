@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-import { BRAND, COLORWAYS, formatPrice } from '../../config/product';
+import { COLORWAYS } from '../../config/product';
 import { scrollToTarget } from '../../hooks/useSmoothScroll';
 import { Logo } from './SiteHeader';
 
@@ -60,6 +60,8 @@ const POSTS = [
     date: 'Sep 12, 2026',
     read: '6 min',
     tone: COLORWAYS[0],
+    image: '/images/journal/carbon-plate.webp',
+    alt: 'The Model 01 outsole, seen from below: full-length rubber, no plate.',
   },
   {
     tag: 'Field notes',
@@ -68,6 +70,8 @@ const POSTS = [
     date: 'Aug 28, 2026',
     read: '9 min',
     tone: COLORWAYS[2],
+    image: '/images/journal/porto-rain.webp',
+    alt: 'A lone runner on a wet, lamp-lit street at night in heavy rain.',
   },
   {
     tag: 'Advice',
@@ -76,6 +80,8 @@ const POSTS = [
     date: 'Aug 03, 2026',
     read: '4 min',
     tone: COLORWAYS[1],
+    image: '/images/journal/worn-out.webp',
+    alt: 'A completely worn-out shoe lying in the sand, its upper torn open.',
   },
 ];
 
@@ -217,21 +223,23 @@ function Journal() {
         </a>
       </div>
       <ul className="mt-12 grid gap-6 md:grid-cols-3">
-        {POSTS.map((p, i) => (
+        {POSTS.map((p) => (
           <li key={p.title} data-reveal>
             <a href="#journal" className="group block">
               <div
                 className="relative aspect-[4/3] overflow-hidden rounded-3xl"
                 style={{ background: p.tone.tint }}
               >
-                <span
-                  className="serif absolute -bottom-8 right-4 select-none text-[11rem] italic leading-none transition-transform duration-500 group-hover:-translate-y-2"
-                  style={{ color: p.tone.accent, opacity: 0.85 }}
-                  aria-hidden="true"
-                >
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span className="mono absolute left-5 top-5 rounded-full bg-paper/80 px-3 py-1 text-[10px] uppercase tracking-[0.14em]">
+                <img
+                  src={p.image}
+                  alt={p.alt}
+                  width={960}
+                  height={720}
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                />
+                <span className="mono absolute left-5 top-5 rounded-full bg-paper/85 px-3 py-1 text-[10px] uppercase tracking-[0.14em] backdrop-blur-sm">
                   {p.tag}
                 </span>
               </div>
@@ -346,22 +354,21 @@ function Footer() {
           </div>
         ))}
       </div>
-      <div className="mx-auto flex max-w-page flex-col gap-2 border-t border-line px-6 py-6 text-xs text-ink-3 sm:flex-row sm:justify-between sm:px-10">
+      <div className="mx-auto flex max-w-page flex-col gap-2 border-t border-line px-6 py-6 text-xs text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-10">
         <p>
-          © {new Date().getFullYear()} {BRAND.company} — a fictional brand. {BRAND.model} from{' '}
-          {formatPrice(BRAND.price)}.
+          © {new Date().getFullYear()} <span className="font-semibold text-ink">VBUILD™</span>.
+          All rights reserved.
         </p>
         <p>
-          3D model: “Materials Variants Shoe” by Shopify,{' '}
+          Designed and built by VBUILD™ ·{' '}
           <a
             className="underline underline-offset-2 hover:text-ink"
             href="https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/MaterialsVariantsShoe"
             target="_blank"
             rel="noreferrer"
           >
-            CC BY 4.0
+            3D model licence (CC BY 4.0)
           </a>
-          .
         </p>
       </div>
     </footer>

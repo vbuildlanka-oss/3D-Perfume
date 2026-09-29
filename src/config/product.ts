@@ -5,7 +5,6 @@
 
 export const BRAND = {
   name: 'Kestrel',
-  company: 'Kestrel Running Co.',
   model: 'Model 01',
   category: 'Daily trainer',
   price: 165,

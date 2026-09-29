@@ -112,7 +112,7 @@ export const chapterAt = (index: number) => index / SCROLL_SPAN;
  * camera travel is shortened by 40%.
  * ------------------------------------------------------------------ */
 export const MOBILE_TRAVEL_SCALE = 0.6;
-const MIN_FRAME_WIDTH = 3.3;
+const MIN_FRAME_WIDTH = 3.7;
 const FOV = 35;
 const HALF_FOV_TAN = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
 
@@ -187,6 +187,3 @@ export function chapterPresence(p: number, index: number, width = 0.55): number 
   const d = Math.abs(clamp01(p) * SCROLL_SPAN - index);
   return 1 - ease(clamp01(d / width));
 }
-
-export const chapterIndexForProgress = (p: number) =>
-  Math.min(SCROLL_SPAN, Math.round(clamp01(p) * SCROLL_SPAN));

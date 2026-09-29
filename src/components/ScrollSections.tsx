@@ -53,11 +53,10 @@ function Chapter({
   );
 }
 
-function Kicker({ n, children }: { n: string; children: ReactNode }) {
+function Kicker({ children }: { children: ReactNode }) {
   return (
     <p className="eyebrow flex items-center gap-3">
-      <span className="accent-transition text-accent">{n}</span>
-      <span className="h-px w-8 bg-ink/20" />
+      <span className="accent-transition h-px w-8 bg-accent" />
       <span>{children}</span>
     </p>
   );
@@ -185,7 +184,7 @@ export function ScrollSections({ reducedMotion }: { reducedMotion: boolean }) {
       {/* 01 — Upper */}
       <Chapter index={1} place="left">
         <div className="max-w-[440px]">
-          <Kicker n="01">Upper</Kicker>
+          <Kicker>Upper</Kicker>
           <h2 className="h2 mt-5">
             A knit that learns your foot, then{' '}
             <span className="serif italic font-normal">leaves it alone.</span>
@@ -210,7 +209,7 @@ export function ScrollSections({ reducedMotion }: { reducedMotion: boolean }) {
       {/* 02 — Cushion (the pins on the shoe carry the numbers) */}
       <Chapter index={2} place="bottom-left">
         <div className="max-w-[520px]">
-          <Kicker n="02">Cushion</Kicker>
+          <Kicker>Cushion</Kicker>
           <h2 className="h2 mt-5">
             Soft on landing. <span className="serif italic font-normal">Not</span> mushy on the way
             out.
@@ -226,7 +225,7 @@ export function ScrollSections({ reducedMotion }: { reducedMotion: boolean }) {
       <Chapter index={3} place="right">
         <div className="max-w-[420px] md:text-right">
           <div className="md:flex md:justify-end">
-            <Kicker n="03">Grip</Kicker>
+            <Kicker>Grip</Kicker>
           </div>
           <h2 className="h2 mt-5">
             Rubber where you <span className="serif italic font-normal">actually</span> push off.
@@ -241,7 +240,7 @@ export function ScrollSections({ reducedMotion }: { reducedMotion: boolean }) {
       {/* 04 — Heel */}
       <Chapter index={4} place="left">
         <div className="max-w-[420px]">
-          <Kicker n="04">Heel</Kicker>
+          <Kicker>Heel</Kicker>
           <h2 className="h2 mt-5">
             No blisters. <span className="serif italic font-normal">We checked.</span>
           </h2>
@@ -256,7 +255,7 @@ export function ScrollSections({ reducedMotion }: { reducedMotion: boolean }) {
       <Chapter index={5} place="bottom" interactive>
         <div className="pointer-events-auto flex flex-col gap-6 md:flex-row md:items-end md:gap-16">
           <div className="max-w-[420px]">
-            <Kicker n="05">Colour</Kicker>
+            <Kicker>Colour</Kicker>
             <h2 className="h2 mt-5">
               Three colours. <span className="serif italic font-normal">None</span> of them limited.
             </h2>
